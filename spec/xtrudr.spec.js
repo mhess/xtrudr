@@ -2,15 +2,15 @@ var rewire = require('rewire'),
     expect = require('chai').expect,
     q      = require('q');
 
-var xtrudr = rewire('../index');
+var xtrudr = rewire('../xtrudr');
 
 var syncOkFn = function(inp){ syncOkFn.count++; return inp+1; },
-    syncErrFn = function(inp){ syncErrFn.count++; throw inp; };
+    syncErrFn = function(inp){ syncErrFn.count++; throw inp-1; };
 
 var asyncOkFn = function(inp){ asyncOkFn.count++; return q(inp+1);},
     asyncErrFn = function(inp){
       asyncErrFn.count++;
-      return q.reject(inp);
+      return q.reject(inp-1);
     };
 
 function reset(){
@@ -34,10 +34,9 @@ describe('#permit()', function(){
     it('should not poplate anything if missing', function(){
       var inp = {baz:1};
       myXtrudr(inp);
-      ['out', 'err'].forEach(function(p){
-        expect(myXtrudr[p]).to.deep.equal({});
-      });
-      expect(myXtrudr.inp).to.deep.equal(inp);
+      expect(myXtrudr.inp).to.deep.equal(inp);      
+      expect(myXtrudr.out).to.deep.equal({});
+      expect(myXtrudr.err).to.be.undefined;
     });
 
   });
@@ -56,7 +55,7 @@ describe('#permit()', function(){
         myXtrudr.permit({foo: syncOkFn})(inp);
         expect(syncOkFn.count).to.equal(1);
         expect(myXtrudr.out.foo).to.equal(2);
-        expect(myXtrudr.err.foo).to.be.undefined;
+        expect(myXtrudr.err).to.be.undefined;
       });
 
       it('should run function and assign error', function(){
@@ -64,7 +63,7 @@ describe('#permit()', function(){
         myXtrudr.permit({foo: syncErrFn})(inp);
         expect(syncErrFn.count).to.equal(1);
         expect(myXtrudr.out.foo).to.be.undefined;
-        expect(myXtrudr.err.foo).to.deep.equal([1]);
+        expect(myXtrudr.err.foo).to.deep.equal([0]);
       });
 
     });
@@ -82,7 +81,7 @@ describe('#permit()', function(){
           expect(x).to.equal(myXtrudr);
           expect(asyncOkFn.count).to.equal(1);
           expect(x.out.foo).to.equal(2);
-          expect(x.err.foo).to.be.undefined;
+          expect(x.err).to.be.undefined;
           done();
         });
 
@@ -95,10 +94,15 @@ describe('#permit()', function(){
           expect(x).to.equal(myXtrudr);
           expect(asyncOkFn.count).to.equal(0);
           expect(x.out).to.deep.equal({});
-          expect(x.err).to.deep.equal({});
+          expect(x.err).to.be.undefined;
           done();
         });
       });
+
+      it('should assign err and return promise', function(){
+
+      });
+
     });
   });
 });
@@ -114,7 +118,7 @@ describe('#require()', function(){
       var inp = {foo:1};
       myXtrudr(inp);
       expect(myXtrudr.out).to.deep.equal(inp);
-      expect(myXtrudr.err).to.deep.equal({});
+      expect(myXtrudr.err).to.be.undefined;
     });
 
     it('should populate err if parameter is missing', function(){
@@ -136,7 +140,7 @@ describe('#require()', function(){
         myXtrudr.require({foo: syncOkFn})(inp);
         expect(syncOkFn.count).to.equal(1);
         expect(myXtrudr.out.foo).to.equal(2);
-        expect(myXtrudr.err.foo).to.be.undefined;
+        expect(myXtrudr.err).to.be.undefined;
       });
 
       it('should populate err if parameter is missing', function(){
@@ -158,7 +162,7 @@ describe('#require()', function(){
         expect(q.isPromise(res)).to.be.true;
         res.done(function(x){
           expect(x).to.equal(myXtrudr);
-          expect(x.err).to.deep.equal({});
+          expect(x.err).to.be.undefined;
           expect(x.out.foo).to.equal(2);
           done();
         });
@@ -180,7 +184,7 @@ describe('#require()', function(){
         expect(q.isPromise(res)).to.be.true;
         res.done(function(x){
           expect(x).to.equal(myXtrudr);
-          expect(x.err.foo).to.deep.equal([1]);
+          expect(x.err.foo).to.deep.equal([0]);
           expect(x.out).to.deep.equal({});
           done();
         });
@@ -214,6 +218,38 @@ describe("runValFun()", function(){
       expect(res).to.be.undefined;
       expect(myXtrudr.err[name]).to.deep.equal([inp]);
     });
+
+    it('should assign to out if fn returns nothing', function(){
+      var fn = function(){},
+          inp = 1;
+          res = runValFun(myXtrudr, name, inp, fn);
+      expect(res).to.be.undefined;
+      expect(myXtrudr.out[name]).to.equal(1);
+    });
+  });
+
+  describe('with multiple sync functions', function(){
+
+    beforeEach(function(){
+      reset();
+      myXtrudr = xtrudr();
+    });
+    
+    it('should call all fns and only assign last val', function(){
+      res = runValFun(myXtrudr, name, inp, [syncOkFn, syncOkFn]);
+      expect(res).to.be.undefined;
+      expect(syncOkFn.count).to.equal(2);
+      expect(myXtrudr.out[name]).to.equal(2);
+      expect(myXtrudr.err).to.deep.equal({});
+    });
+
+    it('should concatenate errors', function(){
+      res = runValFun(myXtrudr, name, inp, [syncErrFn, syncErrFn]);
+      expect(res).to.be.undefined;
+      expect(syncErrFn.count).to.equal(2);
+      expect(myXtrudr.out).to.deep.equal({});
+      expect(myXtrudr.err[name]).to.deep.equal([0,0]);
+    });
   });
 
   describe('with async function', function(){
@@ -241,6 +277,15 @@ describe("runValFun()", function(){
         done();
       });
     });
+
+  });
+
+  describe('with multiple async functions', function(){
+
+    // var myXtrudr = xtrudr(), inp = {};
+    // inp[name] = 1;
+    // var d1 = q.defer(), d2 = q.defer();
+    // var async1 = function(){d.resolve()};
 
   });
 });

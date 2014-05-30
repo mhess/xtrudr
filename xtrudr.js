@@ -6,32 +6,54 @@ function arg2arr(arg){ return Array.prototype.slice.call(arg); }
 
 function handleErr(name, e){
   if ( e instanceof Error ) throw e;
-  this.err[name] = _.isArray(e) ? e : [e];
+  var errArray;
+  if ( ( errArray = this.err[name] ) ) errArray.push(e);
+  else this.err[name] = [e];
 }
 
 /**
- *  Handles sync or async err/out population of the xtruder object for 
- *  a validator function `fn`.  The `fn` argument may be undefined,
- *  in which case the `val` is simply assigned to `thisArg.out.name`.
+ *  Wrapper for the validator function `fn` that handles sync or async
+ *  err/out population of the xtruder instance.  The `fn` argument may 
+ *  be undefined, in which case the `val` is simply assigned to 
+ *  `thisArg.out[name]`.
  */
 function runValFun(thisArg, name, val, fn){
-  try {
-    var res = fn ? fn(val) : val;
-  } catch (e) {
-    return handleErr.call(thisArg, name, e);
-  }
-  if ( thisArg.async ) {
-    return q(res).then(
-      function(r){thisArg.out[name] = r;},
-      handleErr.bind(thisArg, name)
+
+  var handleErrForName = handleErr.bind(thisArg, name);
+
+  if ( _.isFunction(fn) ) fns = [fn];
+  else if ( !fn ) fns = [];
+  else fns = fn;
+  
+  if ( thisArg.async ){
+    return fns.reduce(function(lastProm, validator){
+      return lastProm.then(validator, handleErrForName);
+    }, q(val))
+    .then(
+      function(r){
+        thisArg.out[name] = r===undefined ? val : r;
+      },
+      handleErrForName
     );
+  } else {
+    // If a validator fn throws an error, just pass its input value
+    // to the next validator.
+    var errFlag = false;
+    res = fns.reduce(function(p, validator){
+      try {
+        return validator(val);
+      } catch (e) {
+        errFlag = true;
+        handleErrForName(e);
+      }
+    }, val);
+    if ( !errFlag ) thisArg.out[name] = res===undefined ? val : res;
   }
-  thisArg.out[name] = res;
 }
 
 /**
  *  Attaches a validator function `fn` for a required parameter as a 
- *  validator method on the xtrudr object.
+ *  validator method on the xtrudr instance.
  */
 function addRequired(fn, name){
   this.meths[name] = function(){
@@ -44,7 +66,7 @@ function addRequired(fn, name){
 
 /**
  *  Attaches a validator function `fn` for a permitted parameter as a 
- *  validator method on the xtrudr object.
+ *  validator method on the xtrudr instance.
  */
 function addPermitted(fn, name){
   this.meths[name] = function(){
@@ -52,6 +74,26 @@ function addPermitted(fn, name){
     if ( value!==undefined )
       return runValFun(this, name, value, fn);
   }.bind(this);
+}
+
+/**
+ *  Wraps the `addFn` function with logic to handle all the different
+ *  argument types/styles that might be passed to the `permit` or
+ *  `require` xtrudr methods.
+ */
+function addFunFactory(addFn){
+  return function(){
+    var boundAddFn = addFn.bind(this, null);
+    arg2arr(arguments).forEach(function(arg){
+      // String
+      if ( typeof arg === 'string' ) boundAddFn(arg);
+      // Array
+      else if ( _.isArray(arg) ) arg.forEach(boundAddFn, this);
+      // Object
+      else _.forEach(arg, addFn, this);
+    }, this);
+    return this;
+  };
 }
 
 /**
@@ -69,36 +111,26 @@ var xtrudrMethods = {
 
   add: function(methods){
     _.forEach(methods, function(method, name){
-      that.meths[name] = method.bind(this);
+      this.meths[name] = method.bind(this);
     }, this);
-    return that;
+    return this;
   },
 
-  require: function(){
-    var that = this;
-    arg2arr(arguments).forEach(function(arg){
-      if ( typeof arg === 'string' )
-        addRequired.call(that, null, arg);
-      else _.forEach(arg, addRequired, that);
-    });
-    return that;
-  },
+  require: addFunFactory(addRequired),
 
-  permit: function(){
-    var that = this;
-    arg2arr(arguments).forEach(function(arg){
-      if ( typeof arg === 'string' )
-        addPermitted.call(that, null, arg);
-      else _.forEach(arg, addPermitted, that);
-    });
-    return that;
-  }
+  permit: addFunFactory(addPermitted)
+
 };
+
+function emptyErr(){
+  if ( _.isEmpty(this.err) ) delete this.err;
+  return this;
+}
 
 /**
  *  Need `async` parameter to ensure that a promise is returned even
  *  if a required parameter with an async validator function is 
- *  missing.
+ *  missing, since that will make the validator return synchronously.
  */
 module.exports = function(async){
   var v = function(inp){
@@ -107,13 +139,15 @@ module.exports = function(async){
 
     var results = _.map(v.meths, function(meth){ return meth(); });
 
-    return async ? q.all(results).thenResolve(v) : v;
+    if ( async ) return q.all(results).then(boundEmptyErr);
+    else return boundEmptyErr();
 
   };
+
+  var boundEmptyErr = emptyErr.bind(v);
   
   if ( async ) v.async = true;
 
   v.meths = v.do = {};
-  _.assign(v, xtrudrMethods);
-  return v.reset();
+  return _.assign(v, xtrudrMethods).reset();
 };
