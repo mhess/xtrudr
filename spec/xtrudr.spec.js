@@ -34,7 +34,7 @@ describe('#permit()', function(){
     it('should not poplate anything if missing', function(){
       var inp = {baz:1};
       myXtrudr(inp);
-      expect(myXtrudr.inp).to.deep.equal(inp);      
+      expect(myXtrudr.inp).to.deep.equal(inp);
       expect(myXtrudr.out).to.deep.equal({});
       expect(myXtrudr.err).to.be.undefined;
     });
