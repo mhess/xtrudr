@@ -18,30 +18,43 @@ function reset(){
   asyncOkFn.count = 0; asyncErrFn.count = 0;
 }
 
+function xpect(x, inp, out, err){
+  var args = arguments;
+  ['inp', 'out', 'err'].forEach(function(t, i){
+    expect(x[t]).to.deep.equal(args[i+1]);
+  });
+}
+
 describe('#permit()', function(){
 
-  describe('with str argument', function(){
+  describe('with str arg', function(){
     var name = 'foo';
     var myXtrudr = xtrudr().permit(name);
 
     it('should simply pass parameter through', function(){
       var inp = {};
       inp[name] = 1;
-      myXtrudr(inp);
-      expect(myXtrudr.out).to.deep.equal(inp);
+      xpect(myXtrudr(inp), inp, inp);
     });
 
     it('should not poplate anything if missing', function(){
       var inp = {baz:1};
-      myXtrudr(inp);
-      expect(myXtrudr.inp).to.deep.equal(inp);
-      expect(myXtrudr.out).to.deep.equal({});
-      expect(myXtrudr.err).to.be.undefined;
+      xpect(myXtrudr(inp), inp, {});
     });
 
   });
 
-  describe('with obj argument', function(){
+  describe('with array arg', function(){
+
+    it('should permit all names in array', function(){
+      var myXtrudr = xtrudr().permit(['foo', 'baz']),
+          inp = {foo:1, baz:2, zab: 3};
+      xpect(myXtrudr(inp), inp, {foo:1,baz:2});
+    });
+
+  });
+
+  describe('with obj arg', function(){
 
     describe('and sync function', function(){
 
@@ -54,16 +67,14 @@ describe('#permit()', function(){
         var inp = {foo: 1};
         myXtrudr.permit({foo: syncOkFn})(inp);
         expect(syncOkFn.count).to.equal(1);
-        expect(myXtrudr.out.foo).to.equal(2);
-        expect(myXtrudr.err).to.be.undefined;
+        xpect(myXtrudr, inp, {foo:2});
       });
 
       it('should run function and assign error', function(){
         var inp = {foo: 1};
         myXtrudr.permit({foo: syncErrFn})(inp);
         expect(syncErrFn.count).to.equal(1);
-        expect(myXtrudr.out.foo).to.be.undefined;
-        expect(myXtrudr.err.foo).to.deep.equal([0]);
+        xpect(myXtrudr, inp, {}, {foo:[0]});
       });
 
     });
@@ -78,10 +89,8 @@ describe('#permit()', function(){
             res = myXtrudr.permit({foo: asyncOkFn})(inp);
         expect(q.isPromise(res)).to.be.true;
         res.done(function(x){
-          expect(x).to.equal(myXtrudr);
           expect(asyncOkFn.count).to.equal(1);
-          expect(x.out.foo).to.equal(2);
-          expect(x.err).to.be.undefined;
+          xpect(myXtrudr, inp, {foo:2});
           done();
         });
 
@@ -91,10 +100,8 @@ describe('#permit()', function(){
         var res = myXtrudr.permit({foo: asyncOkFn})({});
         expect(q.isPromise(res)).to.be.true;
         res.done(function(x){
-          expect(x).to.equal(myXtrudr);
           expect(asyncOkFn.count).to.equal(0);
-          expect(x.out).to.deep.equal({});
-          expect(x.err).to.be.undefined;
+          xpect(myXtrudr, {}, {});
           done();
         });
       });
@@ -194,98 +201,147 @@ describe('#require()', function(){
   });
 });
 
+describe('handleErr()', function(){
+  var handleErr = xtrudr.__get__('handleErr');
+
+  it('should throw if given an Error inst', function(){
+    var err = new Error('foo');
+    try {
+      handleErr('foo', err);
+      throw "Should err!";
+    } catch (e) { expect(e).to.equal(err); }
+  });
+
+  it('should create array with err', function(){
+    var obj = {err:{}};
+    handleErr.call(obj, 'foo', 1);
+    expect(obj.err.foo).to.deep.equal([1]);
+  });
+
+  it('should concatenate errs', function(){
+    var obj = {err:{foo:[1]}};
+    handleErr.call(obj, 'foo', 2);
+    expect(obj.err.foo).to.deep.equal([1,2]);
+  });
+});
+
 describe("runValFun()", function(){
 
   var runValFun = xtrudr.__get__('runValFun'),
-      myXtrudr,
-      name = 'foo',
-      inp = 1;
+      myXtrudr, expInp = {}, expOut = {},
+      name = 'foo', inp = 1;
+      expInp[name] = inp;
+      expOut[name] = syncOkFn(inp);
 
-  describe('with sync function', function(){
+  beforeEach(function(){ reset(); });
+
+  describe('with sync xtrudr', function(){
+
+    function run(fns){
+      var res = runValFun(myXtrudr, name, inp, fns);
+      expect(res).to.be.undefined;
+    }
 
     beforeEach(function(){ myXtrudr = xtrudr(); });
 
-    it('should assign function output to xtrudr.out', function(){
-      var fn = function(a){return a;},
-          res = runValFun(myXtrudr, name, inp, fn);
-      expect(res).to.be.undefined;
-      expect(myXtrudr.out[name]).to.equal(inp);
+    it('should assign fn output to xtrudr.out', function(){
+      run(syncOkFn);
+      xpect(myXtrudr, {}, expOut, {});
     });
 
     it('should assign thrown err to xtrudr.err', function(){
-      var fn = function(i){ throw i; },
-          res = runValFun(myXtrudr, name, inp, fn);
-      expect(res).to.be.undefined;
-      expect(myXtrudr.err[name]).to.deep.equal([inp]);
+      run(syncErrFn);
+      xpect(myXtrudr, {}, {}, {foo: [0]});
     });
 
     it('should assign to out if fn returns nothing', function(){
-      var fn = function(){},
-          inp = 1;
-          res = runValFun(myXtrudr, name, inp, fn);
-      expect(res).to.be.undefined;
-      expect(myXtrudr.out[name]).to.equal(1);
+      run(function(){});
+      xpect(myXtrudr, {}, expInp, {});
     });
+
+    it('should assign input if no fn', function(){
+      run();
+      xpect(myXtrudr, {}, expInp, {});
+    });
+
+    describe('with multiple fns', function(){
+      
+      it('should call all fns and only assign last val', function(){
+        function second(i){return i+2;}
+        run([syncOkFn, second]);
+        expect(syncOkFn.count).to.equal(1);
+        xpect(myXtrudr, {}, {foo:3}, {});
+      });
+
+      it('should concatenate errs and not assign out', function(){
+        var fns = [syncOkFn, syncErrFn, syncErrFn];
+        run(fns);
+        expect(syncOkFn.count).to.equal(1);
+        expect(syncErrFn.count).to.equal(2);
+        xpect(myXtrudr, {}, {}, {foo: [0,0]});
+      });
+    });
+
   });
 
-  describe('with multiple sync functions', function(){
-
-    beforeEach(function(){
-      reset();
-      myXtrudr = xtrudr();
-    });
-    
-    it('should call all fns and only assign last val', function(){
-      res = runValFun(myXtrudr, name, inp, [syncOkFn, syncOkFn]);
-      expect(res).to.be.undefined;
-      expect(syncOkFn.count).to.equal(2);
-      expect(myXtrudr.out[name]).to.equal(2);
-      expect(myXtrudr.err).to.deep.equal({});
-    });
-
-    it('should concatenate errors', function(){
-      res = runValFun(myXtrudr, name, inp, [syncErrFn, syncErrFn]);
-      expect(res).to.be.undefined;
-      expect(syncErrFn.count).to.equal(2);
-      expect(myXtrudr.out).to.deep.equal({});
-      expect(myXtrudr.err[name]).to.deep.equal([0,0]);
-    });
-  });
-
-  describe('with async function', function(){
-
-    var myXtrudr;
+  describe('with async xtrudr', function(){
 
     beforeEach(function(){ myXtrudr = xtrudr(true); });
 
-    it('should assign function output and return prom', function(done){
-      var fn = function(i){ return q(i); },
-          res = runValFun(myXtrudr, name, inp, fn);
+    function run(fns){
+      var res = runValFun(myXtrudr, name, inp, fns);
       expect(q.isPromise(res)).to.be.true;
-      res.done(function(){
-        expect(myXtrudr.out[name]).to.deep.equal(inp);
+      return res;
+    }
+
+    it('should assign fn output and return prom', function(done){
+      run(asyncOkFn).done(function(){
+        xpect(myXtrudr, {}, expOut, {});
         done();
       });
     });
 
-    it('should assign err to xtrudr.err and return prom', function(done){
-      var fn = function(i){ return q.reject(i); },
-          res = runValFun(myXtrudr, name, inp, fn);
-      expect(q.isPromise(res)).to.be.true;
-      res.done(function(){
-        expect(myXtrudr.err[name]).to.deep.equal([inp]);
+    it('should assign err and return prom', function(done){
+      run(asyncErrFn).done(function(){
+        xpect(myXtrudr, {}, {}, {foo:[0]});
         done();
       });
     });
 
-  });
+    it('should assign out if fn returns nothing', function(done){
+      run(function(){}).done(function(){
+        xpect(myXtrudr, {}, expInp, {});
+        done();
+      });
+    });
 
-  describe('with multiple async functions', function(){
+    it('should assign out if no fn', function(done){
+      run().done(function(){
+        xpect(myXtrudr, {}, expInp, {});
+        done();
+      });
+    });
 
-    // var myXtrudr = xtrudr(), inp = {};
-    // inp[name] = 1;
-    // var d1 = q.defer(), d2 = q.defer();
-    // var async1 = function(){d.resolve()};
+    describe('with multiple fns', function(){
 
+      it('should call all fns and only assign last', function(done){
+        function last(i){ return q(i+4); }
+        run([syncOkFn, asyncOkFn, last]).done(function(){
+          [syncOkFn, asyncOkFn].forEach(function(fn){
+            expect(fn.count).to.equal(1);
+          });
+          xpect(myXtrudr, {}, {foo:5}, {});
+          done();
+        });
+      });
+
+      it('should concatenate errs and not assign out', function(done){
+        run([asyncOkFn, syncErrFn, asyncErrFn]).done(function(){
+          expect(asyncOkFn.count).to.equal(1);
+          xpect(myXtrudr, {}, {}, {foo:[0,0]});
+          done();
+        });
+      });
+    });
   });
 });

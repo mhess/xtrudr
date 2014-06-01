@@ -15,32 +15,34 @@ function handleErr(name, e){
  *  Wrapper for the validator function `fn` that handles sync or async
  *  err/out population of the xtruder instance.  The `fn` argument may 
  *  be undefined, in which case the `val` is simply assigned to 
- *  `thisArg.out[name]`.
+ *  `that.out[name]`.
  */
-function runValFun(thisArg, name, val, fn){
+function runValFun(that, name, val, fn){
 
-  var handleErrForName = handleErr.bind(thisArg, name);
+  var handleErrForName = handleErr.bind(that, name),
+      errFlag = false;
 
   if ( _.isFunction(fn) ) fns = [fn];
   else if ( !fn ) fns = [];
   else fns = fn;
   
-  if ( thisArg.async ){
-    return fns.reduce(function(lastProm, validator){
-      return lastProm.then(
-        function(){ return validator(val); },
-        handleErrForName);
-    }, q(val))
-    .then(
-      function(r){
-        thisArg.out[name] = r===undefined ? val : r;
-      },
-      handleErrForName
-    );
+  if ( that.async ){
+    return q.all(
+      fns.map(function(validator){
+      // validator may be synchronous
+        return q.fcall(validator, val).catch(function(e){
+          errFlag = true;
+          handleErrForName(e);
+        });
+    }))
+    .then(function(results){
+      if ( errFlag ) return;
+      var r = results[results.length-1];
+      that.out[name] = r===undefined ? val : r;
+    });
   } else {
     // If a validator fn throws an error, just pass its input value
     // to the next validator.
-    var errFlag = false;
     res = fns.reduce(function(unused, validator){
       try {
         return validator(val);
@@ -49,7 +51,7 @@ function runValFun(thisArg, name, val, fn){
         handleErrForName(e);
       }
     }, val);
-    if ( !errFlag ) thisArg.out[name] = res===undefined ? val : res;
+    if ( !errFlag ) that.out[name] = res===undefined ? val : res;
   }
 }
 
@@ -85,12 +87,12 @@ function addPermitted(fn, name){
  */
 function addFunFactory(addFn){
   return function(){
-    var boundAddFn = addFn.bind(this, null);
+    var addNullFn = addFn.bind(this, null);
     arg2arr(arguments).forEach(function(arg){
       // String
-      if ( typeof arg === 'string' ) boundAddFn(arg);
+      if ( typeof arg === 'string' ) addNullFn(arg);
       // Array
-      else if ( _.isArray(arg) ) arg.forEach(boundAddFn, this);
+      else if ( _.isArray(arg) ) arg.forEach(addNullFn, this);
       // Object
       else _.forEach(arg, addFn, this);
     }, this);
