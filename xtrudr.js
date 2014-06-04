@@ -6,6 +6,7 @@ function arg2arr(arg){ return Array.prototype.slice.call(arg); }
 
 function handleErr(name, e){
   if ( e instanceof Error ) throw e;
+  if ( e === undefined ) return;
   var errArray;
   if ( ( errArray = this.err[name] ) ) errArray.push(e);
   else this.err[name] = [e];
@@ -41,9 +42,7 @@ function runValFun(that, name, val, fn){
       that.out[name] = r===undefined ? val : r;
     });
   } else {
-    // If a validator fn throws an error, just pass its input value
-    // to the next validator.
-    res = fns.reduce(function(unused, validator){
+    var res = fns.reduce(function(unused, validator){
       try {
         return validator(val);
       } catch (e) {
@@ -155,3 +154,9 @@ module.exports = function(async){
   v.meths = v.do = {};
   return _.assign(v, xtrudrMethods).reset();
 };
+
+try {
+  var validator = require('validator'),
+      myValidators = require('./lib/validators');
+  _.assign(module.exports, myValidators);
+} catch (e) {}
