@@ -4,12 +4,15 @@ try { var q = require('q'); } catch (e) {}
 
 function arg2arr(arg){ return Array.prototype.slice.call(arg); }
 
+function arrAdd(obj, name, item){
+  if ( obj[name] ) obj[name].push(item);
+  else obj[name] = [item];
+}
+
 function handleErr(name, e){
   if ( e instanceof Error ) throw e;
   if ( e === undefined ) return;
-  var errArray;
-  if ( ( errArray = this.err[name] ) ) errArray.push(e);
-  else this.err[name] = [e];
+  arrAdd(this.err, name, e);
 }
 
 /**
@@ -25,7 +28,8 @@ function runValFun(that, name, val, fn){
 
   if ( _.isFunction(fn) ) fns = [fn];
   else if ( !fn ) fns = [];
-  else fns = fn;
+  else if ( _.isArray(fn) ) fns = fn;
+  else fns = fn._fns;
   
   if ( that.async ){
     return q.all(
@@ -59,7 +63,7 @@ function runValFun(that, name, val, fn){
  *  validator method on the xtrudr instance.
  */
 function addRequired(fn, name){
-  this.meths[name] = function(){
+  this.named[name] = function(){
     var value = this.inp[name];
     if ( value===undefined )
       this.err[name] = ['is required'];
@@ -72,7 +76,7 @@ function addRequired(fn, name){
  *  validator method on the xtrudr instance.
  */
 function addPermitted(fn, name){
-  this.meths[name] = function(){
+  this.named[name] = function(){
     var value = this.inp[name];
     if ( value!==undefined )
       return runValFun(this, name, value, fn);
@@ -112,10 +116,9 @@ var xtrudrMethods = {
     return this;
   },
 
-  add: function(methods){
-    _.forEach(methods, function(method, name){
-      this.meths[name] = method.bind(this);
-    }, this);
+  add: function(fn){
+    var inp = this.inp, out = this.out, err = this.err;
+    arrAdd(this, 'general', fn.bind(this, inp, out, err));
     return this;
   },
 
@@ -129,6 +132,7 @@ function emptyErr(){
   if ( _.isEmpty(this.err) ) delete this.err;
   return this;
 }
+function exec(fn){ return fn(); }
 
 /**
  *  Need `async` parameter to ensure that a promise is returned even
@@ -140,7 +144,8 @@ module.exports = function(async){
     v.reset();
     _.assign(v.inp, inp);
 
-    var results = _.map(v.meths, function(meth){ return meth(); });
+    var results = _.map(v.named, exec)
+      .concat(_.map(v.general, exec));
 
     if ( async ) return q.all(results).then(boundEmptyErr);
     else return boundEmptyErr();
@@ -151,7 +156,8 @@ module.exports = function(async){
   
   if ( async ) v.async = true;
 
-  v.meths = v.do = {};
+  v.named = v.do = {};
+  v.general = [];
   return _.assign(v, xtrudrMethods).reset();
 };
 

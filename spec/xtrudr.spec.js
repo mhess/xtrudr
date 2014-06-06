@@ -49,7 +49,7 @@ describe('#permit()', function(){
     it('should permit all names in array', function(){
       var myXtrudr = xtrudr().permit(['foo', 'baz']),
           inp = {foo:1, baz:2, zab: 3};
-      xpect(myXtrudr(inp), inp, {foo:1,baz:2});
+      xpect(myXtrudr(inp), inp, {foo:1, baz:2});
     });
 
   });
