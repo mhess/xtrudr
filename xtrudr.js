@@ -132,7 +132,8 @@ function emptyErr(){
   if ( _.isEmpty(this.err) ) delete this.err;
   return this;
 }
-function exec(fn){ return fn(); }
+
+function invoke(fn){ return fn(); }
 
 /**
  *  Need `async` parameter to ensure that a promise is returned even
@@ -144,8 +145,8 @@ module.exports = function(async){
     v.reset();
     _.assign(v.inp, inp);
 
-    var results = _.map(v.named, exec)
-      .concat(_.map(v.general, exec));
+    var results = _.map(v.named, invoke)
+      .concat(_.map(v.general, invoke));
 
     if ( async ) return q.all(results).then(boundEmptyErr);
     else return boundEmptyErr();
