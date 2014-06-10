@@ -117,8 +117,10 @@ var xtrudrMethods = {
   },
 
   add: function(fn){
-    var inp = this.inp, out = this.out, err = this.err;
-    arrAdd(this, 'general', fn.bind(this, inp, out, err));
+    var that = this;
+    arrAdd(this, 'general', function(){
+      fn(that.inp, that.out, that.err);
+    });
     return this;
   },
 
@@ -157,7 +159,7 @@ module.exports = function(async){
   
   if ( async ) v.async = true;
 
-  v.named = v.do = {};
+  v.named = {};
   v.general = [];
   return _.assign(v, xtrudrMethods).reset();
 };
