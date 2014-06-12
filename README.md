@@ -1,6 +1,7 @@
-# xtrudr.js
+# xtrudr [![Build Status][travis-image]][travis-url]
 
-JavaScript object validator and sanitizer utility library for node.js.
+Flexible user input validator and sanitizer utility library for
+node.js.
 
 Written originally as a "strong parameters"-like substitute for JSON
 API server applications.
@@ -209,3 +210,6 @@ validated property's error array.
 
 The `msg()` method changes the error message for the single instance
 of the validator function registered by the previous method call.
+
+[travis-url]: https://travis-ci.org/mhess/xtrudr
+[travis-image]: http://img.shields.io/travis/mhess/xtrudr.svg
