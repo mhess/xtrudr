@@ -12,6 +12,7 @@
     "lodash": "*"
   },
   "devDependencies": {
+    "mocha": "*",
     "validator": "*",
     "rewire": "*",
     "q": "*",
