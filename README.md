@@ -1,4 +1,5 @@
-# xtrudr [![Build Status][travis-image]][travis-url]
+# xtrudr [![Build Status][travis-img]][travis-url]
+[![Coverage Status][coveralls-img]][coveralls-url]
 
 Flexible user input validator and sanitizer utility library for
 node.js.
@@ -212,4 +213,6 @@ The `msg()` method changes the error message for the single instance
 of the validator function registered by the previous method call.
 
 [travis-url]: https://travis-ci.org/mhess/xtrudr
-[travis-image]: http://img.shields.io/travis/mhess/xtrudr.svg
+[travis-img]: http://img.shields.io/travis/mhess/xtrudr.svg
+[coveralls-url]: https://coveralls.io/r/mhess/xtrudr
+[coveralls-img]: https://img.shields.io/coveralls/mhess/xtrudr.svg
