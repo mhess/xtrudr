@@ -1,5 +1,4 @@
-# xtrudr [![Build Status][travis-img]][travis-url]
-[![Coverage Status][coveralls-img]][coveralls-url]
+# xtrudr [![Build Status][travis-img]][travis-url][![Coverage Status][coveralls-img]][coveralls-url]
 
 Flexible user input validator and sanitizer utility library for
 node.js.
