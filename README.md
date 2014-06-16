@@ -1,4 +1,7 @@
-# xtrudr [![Build Status][travis-img]] [travis-url][![Coverage Status][coveralls-img]][coveralls-url]
+# xtrudr
+
+[![Build Status][travis-img]][travis-url]
+[![Coverage Status][coveralls-img]][coveralls-url]
 
 Flexible user input validator and sanitizer utility library for
 node.js.
@@ -32,6 +35,7 @@ var xSync = x()
     if ( err.baz ) err.errs = ["you've got them!"];
   });
 
+
 // Invalid input
 var input1 = {foo: 1, email: 'oops', num: "a"};
 
@@ -41,6 +45,7 @@ xSync(input1).err  // => {baz: ["is required"], email: ["bad email"],
 xSync.inp          // => {foo: 1, email: 'oops', num: "a"}
 
 xSync.out          // => {foo: 1}
+
 
 // Valid input
 var input2 = {baz: "baz", email: "a@baz.com", num: "2"};
