@@ -15,6 +15,8 @@ function handleErr(name, e){
   arrAdd(this.err, name, e);
 }
 
+var defaultMsgs = module.exports.defaultMsgs = {required: 'is required'};
+
 /**
  *  Wrapper for the validator function `fn` that handles sync or async
  *  err/out population of the xtruder instance.  The `fn` argument may 
@@ -63,10 +65,11 @@ function runValFun(that, name, val, fn){
  *  validator method on the xtrudr instance.
  */
 function addRequired(fn, name){
+  var msg = defaultMsgs.required;
   this.named[name] = function(){
     var value = this.inp[name];
     if ( value===undefined )
-      this.err[name] = ['is required'];
+      arrAdd(this.err, name, _.isFunction(msg) ? msg(name) : msg );
     else return runValFun(this, name, value, fn);
   }.bind(this);
 }
@@ -130,7 +133,7 @@ var xtrudrMethods = {
 
 };
 
-function emptyErr(){
+function removeErr(){
   if ( _.isEmpty(this.err) ) delete this.err;
   return this;
 }
@@ -147,15 +150,24 @@ module.exports = function(async){
     v.reset();
     _.assign(v.inp, inp);
 
-    var results = _.map(v.named, invoke)
-      .concat(_.map(v.general, invoke));
+    var namedResults = _.map(v.named, invoke);
 
-    if ( async ) return q.all(results).then(boundEmptyErr);
-    else return boundEmptyErr();
+    if ( async ) {
+      return q.all(namedResults)
+        .then(function(){
+          return v.general.reduce(function(p, c){
+            return p.then(c);
+          }, q());
+        })
+        .then(boundRemoveErr);
+    } else {
+      v.general.forEach(invoke);
+      return boundRemoveErr();
+    }
 
   };
 
-  var boundEmptyErr = emptyErr.bind(v);
+  var boundRemoveErr = removeErr.bind(v);
   
   if ( async ) v.async = true;
 
@@ -166,6 +178,8 @@ module.exports = function(async){
 
 try {
   var validator = require('validator'),
-      myValidators = require('./lib/validators');
-  _.assign(module.exports, myValidators);
+      valMod = require('./lib/validators');
+  _.assign(module.exports, valMod.fns);
+  _.assign(defaultMsgs, valMod.defaultMsgs);
+  module.exports.defaultMsgs = defaultMsgs;
 } catch (e) {}
