@@ -1,6 +1,15 @@
 language: node_js
+
 node_js:
-  - "0.10"
-after_script: >
-  ./node_modules/mocha/bin/mocha --require blanket -R
-  mocha-lcov-reporter spec | ./node_modules/coveralls/bin/coveralls.js
+- '0.10'
+
+after_script: ./node_modules/mocha/bin/mocha --require blanket -R mocha-lcov-reporter spec | ./node_modules/coveralls/bin/coveralls.js
+
+deploy:
+  provider: npm
+  email: matt@mhess.io
+  api_key:
+    secure: nYRcrOviQZxDiaLZIm5E7bbaDJlA4GYExKPbiwQo5jOC3gdOGwgh97K79Bnkndjt8X6HJ+N4fuDT76ppcYooq6GZitFKkdJrCS4vblOEeoVXbUl73INyetQoID/URy0MN1Vr8z8CPFOU9xZBzrYr9R74yz/p4qn6WN5q8Yd2Gmg=
+  on:
+    tags: true
+    repo: mhess/xtrudr

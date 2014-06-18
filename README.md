@@ -1,5 +1,6 @@
 # xtrudr
 
+[![NPM version][npm-img]][npm-url]
 [![Build Status][travis-img]][travis-url]
 [![Coverage Status][coveralls-img]][coveralls-url]
 
@@ -93,7 +94,8 @@ created by passing a truthy argument to the factory function.
 
 #### Instance properties and invocation
  
-The **xtrudr** instance properties are described as follows:
+The **xtrudr** instance properties populated during invocation are as
+follows:
 
 * `inp`: The original input object.
 * `out`: An output object with properties derived from the input.
@@ -217,6 +219,8 @@ validated property's error array.
 The `msg()` method changes the error message for the single instance
 of the validator function registered by the previous method call.
 
+[npm-url]: https://npmjs.org/package/xtrudr
+[npm-img]: http://img.shields.io/npm/v/xtrudr
 [travis-url]: https://travis-ci.org/mhess/xtrudr
 [travis-img]: http://img.shields.io/travis/mhess/xtrudr.svg
 [coveralls-url]: https://coveralls.io/r/mhess/xtrudr
