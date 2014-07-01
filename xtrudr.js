@@ -15,49 +15,59 @@ function handleErr(name, e){
   arrAdd(this.err, name, e);
 }
 
-var defaultMsgs = module.exports.defaultMsgs = {required: 'is required'};
+/**
+ *  Executes and properly collects the results of asynchronous
+ *  validator/sanitizer operations for an xtrudr instance property.
+ */
+function collectAsync(name, fns, value){
+  var errFlag = false,
+      that = this,
+      handleErrForName = handleErr.bind(this, name);
+
+  return q.all(fns.map(function(validator){
+    return q.fcall(validator, value).catch(function(e){
+      errFlag = true;
+      handleErrForName(e);
+    });
+  }))
+  .then(function(results){
+    if ( errFlag ) return;
+    var r = results[results.length-1];
+    that.out[name] = r===undefined ? value : r;
+  });
+}
 
 /**
- *  Wrapper for the validator function `fn` that handles sync or async
- *  err/out population of the xtruder instance.  The `fn` argument may 
- *  be undefined, in which case the `val` is simply assigned to 
- *  `that.out[name]`.
+ *  Executes and properly collects the results of synchronous
+ *  validator/sanitizer operations for an xtrudr instance property.
  */
-function runValFun(that, name, val, fn){
+function collectSync(name, fns, value){
+  var errFlag = false,
+      handleErrForName = handleErr.bind(this, name);
 
-  var handleErrForName = handleErr.bind(that, name),
-      errFlag = false;
+  var res = fns.reduce(function(unused, validator){
+    try {
+      return validator(value);
+    } catch (e) {
+      errFlag = true;
+      handleErrForName(e);
+    }
+  }, value);
+  if ( !errFlag ) this.out[name] = res===undefined ? value : res;
+}
 
+/**
+ *  Converts the validator function/array/object into a function that
+ *  operates on a property of an xtrudr instance.
+ */
+function convertValidator(xInst, name, fn){
   if ( _.isFunction(fn) ) fns = [fn];
   else if ( !fn ) fns = [];
   else if ( _.isArray(fn) ) fns = fn;
   else fns = fn._fns;
-  
-  if ( that.async ){
-    return q.all(
-      fns.map(function(validator){
-      // validator may be synchronous
-        return q.fcall(validator, val).catch(function(e){
-          errFlag = true;
-          handleErrForName(e);
-        });
-    }))
-    .then(function(results){
-      if ( errFlag ) return;
-      var r = results[results.length-1];
-      that.out[name] = r===undefined ? val : r;
-    });
-  } else {
-    var res = fns.reduce(function(unused, validator){
-      try {
-        return validator(val);
-      } catch (e) {
-        errFlag = true;
-        handleErrForName(e);
-      }
-    }, val);
-    if ( !errFlag ) that.out[name] = res===undefined ? val : res;
-  }
+
+  if (xInst.async) return collectAsync.bind(xInst, name, fns);
+  else return collectSync.bind(xInst, name, fns);
 }
 
 /**
@@ -65,13 +75,14 @@ function runValFun(that, name, val, fn){
  *  validator method on the xtrudr instance.
  */
 function addRequired(fn, name){
-  var msg = defaultMsgs.required;
-  this.named[name] = function(){
+  var msg = defaultMsgs.required,
+      convertedValFn = convertValidator(this, name, fn);
+  this.named[name] = function(fn){
     var value = this.inp[name];
     if ( value===undefined )
       arrAdd(this.err, name, _.isFunction(msg) ? msg(name) : msg );
-    else return runValFun(this, name, value, fn);
-  }.bind(this);
+    else return fn(value);
+  }.bind(this, convertedValFn);
 }
 
 /**
@@ -79,11 +90,12 @@ function addRequired(fn, name){
  *  validator method on the xtrudr instance.
  */
 function addPermitted(fn, name){
-  this.named[name] = function(){
+  var convertedValFn = convertValidator(this, name, fn);
+  this.named[name] = function(fn){
     var value = this.inp[name];
     if ( value!==undefined )
-      return runValFun(this, name, value, fn);
-  }.bind(this);
+      return fn(value);
+  }.bind(this, convertedValFn);
 }
 
 /**
@@ -174,6 +186,10 @@ module.exports = function(async){
   v.named = {};
   v.general = [];
   return _.assign(v, xtrudrMethods).reset();
+};
+
+var defaultMsgs = module.exports.defaultMsgs = {
+  required: 'is required'
 };
 
 try {

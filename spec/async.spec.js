@@ -28,7 +28,7 @@ function xpect(x, inp, out, err){
 
 describe('Async API', function(){
 
-  ['permit', 'require'].forEach(function(meth){
+  ['permit','require'].forEach(function(meth){
 
     describe('#'+meth+'()', function(){
 
@@ -133,19 +133,6 @@ describe('Async API', function(){
     });
   });
 
-/* 
-
-TARGETS:
-
-  async xtrudr with:
-  
-    * simple sync require/permit
-    * required error and sync/async errors
-    * async and sync validator errors
-    * no errors
-
-*/
-
   describe('combined sync/async single validator fns', function(){
 
     function asyncCondFn(i){
@@ -223,9 +210,7 @@ TARGETS:
         return generalDefered.promise;
       });
 
-    before(function(){
-      return myInst({foo:1});
-    });
+    before(function(){ return myInst({foo:1}); });
 
     it('should get access to instance props', function(){
       _.forEach(props, function(p, n){
@@ -239,55 +224,64 @@ TARGETS:
     });
   });
 
-});
+  describe('#require() with validator as', function(){
 
+    describe('array of fns', function(){
 
-  // describe('#require() with validator as', function(){
-
-  //   describe('array of fns', function(){
-
-  //     function bazFn(i){ if (!i) throw "baz"; }
-  //     function zabFn(i){ if (!i) throw "zab"; }
-  //     function lastFn(){ return 'baz'; }
+      function bazFn(i){ if (!i) throw "baz"; }
+      function zabFn(i){ if (!i) throw "zab"; }
+      function lastFn(){ return 'baz'; }
       
-  //     var myXtrudr = x(true).require({
-  //       foo: [syncOkFn, bazFn, zabFn, lastFn]
-  //     });
+      var inst = x(true).require({
+        foo: [syncOkFn, bazFn, zabFn, lastFn]
+      });
 
-  //     beforeEach(reset);
+      beforeEach(reset);
 
-  //     it('should use value returned by last fn', function(){
-  //       var inp = {foo: 1};
-  //       expect(myXtrudr(inp), inp, {foo: 'baz'});
-  //       expect(syncOkFn.count).to.equal(1);
-  //     });
+      it('should use value returned by last fn', function(){
+        var inp = {foo: 1};
+        return inst(inp).then(function(i){
+          xpect(i, inp, {foo: 'baz'});
+          expect(syncOkFn.count).to.equal(1);
+        });
+      });
 
-  //     it('should concatenate and assign errs', function(){
-  //       var inp = {foo: 0};
-  //       expect(myXtrudr(inp), inp, {}, {foo:['baz', 'zab']});
-  //       expect(syncOkFn.count).to.equal(1);
-  //     });
-  //   });
+      it('should concatenate and assign errs', function(){
+        var inp = {foo: 0};
+        return inst(inp).then(function(i){
+          xpect(i, inp, {}, {foo:['baz', 'zab']});
+          expect(syncOkFn.count).to.equal(1);
+        });
+      });
+    });
 
-  //   describe('chainable obj', function(){
-  //     var myXtrudr = x(true).require({
-  //       foo: x.isLength(2,2).msg(1).isInt().msg(2).toString().toInt()
-  //     });
+    describe('chainable obj', function(){
+      var inst = x(true).require({
+        foo: x.isLength(2,2).msg(1).isInt().msg(2).toString().toInt()
+      });
 
-  //     it('should assign custom err msgs', function(){
-  //       var inp = {foo: 'a'};
-  //       xpect(myXtrudr(inp), inp, {}, {foo: [1,2]});
+      it('should assign custom err msgs', function(){
+        var inp = {foo: 'a'};
+        return inst(inp).then(function(i){
+          xpect(i, inp, {}, {foo: [1,2]});
+          inp = {foo: 1};
+          return inst(inp);
+        }).then(function(i){
+          xpect(i, inp, {}, {foo: [1]});
+          inp = {foo: 'ab'};
+          return inst(inp);
+        }).then(function(i){
+          xpect(i, inp, {}, {foo: [2]});
+        });
+      });
 
-  //       inp = {foo: 1};
-  //       xpect(myXtrudr(inp), inp, {}, {foo: [1]});
+      it('should transform with final sanitizer', function(){
+        var inp = {foo: '12'};
+        return inst(inp).then(function(i){
+          xpect(i, inp, {foo: 12});
+        });
+      });
+    });
+  });
 
-  //       inp = {foo: 'ab'};
-  //       xpect(myXtrudr(inp), inp, {}, {foo: [2]});
-  //     });
-
-  //     it('should transform with final sanitizer', function(){
-  //       var inp = {foo: '12'};
-  //       xpect(myXtrudr(inp), inp, {foo: 12});
-  //     });
-  //   });
-  // });
+});
