@@ -11,8 +11,7 @@ function arrAdd(obj, name, item){
 
 function handleErr(name, e){
   if ( e instanceof Error ) throw e;
-  if ( e === undefined ) return;
-  arrAdd(this.err, name, e);
+  if ( e !== undefined ) arrAdd(this.err, name, e);
 }
 
 /**
@@ -72,7 +71,7 @@ function convertValidator(xInst, name, fn){
 
 /**
  *  Attaches a validator function `fn` for a required parameter as a 
- *  validator method on the xtrudr instance.
+ *  named validator method on the xtrudr instance.
  */
 function addRequired(fn, name){
   var msg = defaultMsgs.required,
@@ -87,7 +86,7 @@ function addRequired(fn, name){
 
 /**
  *  Attaches a validator function `fn` for a permitted parameter as a 
- *  validator method on the xtrudr instance.
+ *  named validator method on the xtrudr instance.
  */
 function addPermitted(fn, name){
   var convertedValFn = convertValidator(this, name, fn);
@@ -103,7 +102,7 @@ function addPermitted(fn, name){
  *  argument types/styles that might be passed to the `permit` or
  *  `require` xtrudr methods.
  */
-function addFunFactory(addFn){
+function argWrapper(addFn){
   return function(){
     var addNullFn = addFn.bind(this, null);
     arg2arr(arguments).forEach(function(arg){
@@ -139,9 +138,9 @@ var xtrudrMethods = {
     return this;
   },
 
-  require: addFunFactory(addRequired),
+  require: argWrapper(addRequired),
 
-  permit: addFunFactory(addPermitted)
+  permit: argWrapper(addPermitted)
 
 };
 
@@ -158,34 +157,35 @@ function invoke(fn){ return fn(); }
  *  missing, since that will make the validator return synchronously.
  */
 module.exports = function(async){
-  var v = function(inp){
-    v.reset();
-    _.assign(v.inp, inp);
+  var inst = function(inp){
+    inst.reset();
+    _.assign(inst.inp, inp);
 
-    var namedResults = _.map(v.named, invoke);
+    var namedResults = _.map(inst.named, invoke);
 
     if ( async ) {
       return q.all(namedResults)
         .then(function(){
-          return v.general.reduce(function(p, c){
+          return inst.general.reduce(function(p, c){
             return p.then(c);
           }, q());
         })
         .then(boundRemoveErr);
     } else {
-      v.general.forEach(invoke);
+      inst.general.forEach(invoke);
       return boundRemoveErr();
     }
 
   };
 
-  var boundRemoveErr = removeErr.bind(v);
+  var boundRemoveErr = removeErr.bind(inst);
   
-  if ( async ) v.async = true;
+  if ( async ) inst.async = true;
 
-  v.named = {};
-  v.general = [];
-  return _.assign(v, xtrudrMethods).reset();
+  inst.named = {};
+  inst.general = [];
+  // Add methods and properties, return instance
+  return _.assign(inst, xtrudrMethods).reset();
 };
 
 var defaultMsgs = module.exports.defaultMsgs = {

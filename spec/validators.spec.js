@@ -7,7 +7,7 @@ var validators = rewire('../lib/validators');
 
 describe('convert', function(){
   var mockExports = {},
-      convert = validators.__get__('convertObj').bind(mockExports),
+      convert = validators.__get__('convert').bind(mockExports),
       defaultMsgs = validators.__get__('defaultMsgs');
 
   function myConvert(name){
@@ -125,49 +125,49 @@ describe('convert', function(){
     });
   });
 
-  describe('defaultMsgs fn for', function(){
-    
-    var dm = validators.defaultMsgs,
-        now = new Date();
+});
 
-    it('contains works', function(){
-      expect(dm.contains([null, 1])).to.equal('must contain 1');
+describe('defaultMsgs fn for', function(){
+  
+  var dm = validators.defaultMsgs,
+      now = new Date();
+
+  it('contains works', function(){
+    expect(dm.contains([null, 1])).to.equal('must contain 1');
+  });
+
+  it('matches works',function(){
+    expect(dm.matches([null, /p/]))
+    .to.equal('must match pattern /p/');
+  });
+
+  it('isDivisibleBy works', function(){
+    expect(dm.isDivisibleBy([null, 3]))
+    .to.equal('must be divisible by 3');
+  });
+
+  describe('isByteLength', function(){
+    it('should do just min', function(){
+      expect(dm.isByteLength([null, 1]))
+      .to.equal("byte length must be greater than 1");
     });
 
-    it('matches works',function(){
-      expect(dm.matches([null, /p/]))
-      .to.equal('must match pattern /p/');
-    });
-
-    it('isDivisibleBy works', function(){
-      expect(dm.isDivisibleBy([null, 3]))
-      .to.equal('must be divisible by 3');
-    });
-
-    describe('isByteLength', function(){
-      it('should do just min', function(){
-        expect(dm.isByteLength([null, 1]))
-        .to.equal("byte length must be greater than 1");
-      });
-
-      it('should do max/min', function(){
-        expect(dm.isByteLength([null, 1, 2]))
-        .to.equal("byte length must be between 1 and 2");
-      });
-    });
-
-    it('isUUID works', function(){
-      expect(dm.isUUID([null, 1])).to.equal('invalid v1 UUID');
-    });
-
-    it('isAfter works', function(){
-      expect(dm.isAfter([null, now])).to.equal('must be after '+now);
-    });
-
-    it('isBefore works', function(){
-      expect(dm.isBefore([null, now]))
-      .to.equal('must be before '+now);
+    it('should do max/min', function(){
+      expect(dm.isByteLength([null, 1, 2]))
+      .to.equal("byte length must be between 1 and 2");
     });
   });
 
+  it('isUUID works', function(){
+    expect(dm.isUUID([null, 1])).to.equal('invalid v1 UUID');
+  });
+
+  it('isAfter works', function(){
+    expect(dm.isAfter([null, now])).to.equal('must be after '+now);
+  });
+
+  it('isBefore works', function(){
+    expect(dm.isBefore([null, now]))
+    .to.equal('must be before '+now);
+  });
 });
