@@ -3,13 +3,23 @@
   "author": "Matt Hess",
   "description": "Flexible JavaScript object validator",
   "version": "0.1.0",
+  "repository": {
+    "url": "git@github.com:mhess/xtrudr.git"
+  },
   "main": "xtrudr.js",
   "dependencies": {
     "lodash": "*"
   },
   "devDependencies": {
+    "validator": "*",
     "rewire": "*",
     "q": "*",
     "chai": "*"
+  },
+  "engines": {
+    "node": ">= 0.10.0"
+  },
+  "scripts": {
+    "test": "mocha spec"
   }
 }
