@@ -1,6 +1,7 @@
 var rewire = require('rewire'),
     expect = require('chai').expect,
-    q      = require('q');
+    q      = require('q'),
+    _      = require('lodash');
 
 var x = rewire('../xtrudr');
 
@@ -159,6 +160,36 @@ describe('#require() with validator as', function(){
       xpect(myXtrudr(inp), inp, {foo: 12});
     });
   });
+});
+
+describe('#add()', function(){
+  var props, checkNamed, checkGeneral,
+      namedFlag = false, generalFlag = false;
+  var myXtrudr = x()
+    .permit({
+      foo: function(){
+        checkGeneral = generalFlag;
+        namedFlag = true;
+      }
+    })
+    .require('baz')
+    .add(function(inp, out, err){
+      checkNamed = namedFlag;
+      generalFlag = true;
+      props = {inp:inp, out:out, err:err};
+    })({foo:1});
+
+  it('should get access to instance props', function(){
+    _.forEach(props, function(p, n){
+      expect(myXtrudr[n]).to.equal(p);
+    });
+  });
+
+  it('should be executed after named validators', function(){
+    expect(checkNamed).to.be.true;
+    expect(checkGeneral).to.be.false;
+  });
+
 });
 
 describe.skip('and async function', function(){
