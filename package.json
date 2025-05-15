@@ -1,0 +1,15 @@
+{
+  "name": "xtrudr",
+  "author": "Matt Hess",
+  "description": "Flexible JavaScript object validator",
+  "version": "0.1.0",
+  "main": "xtrudr.js",
+  "dependencies": {
+    "lodash": "*"
+  },
+  "devDependencies": {
+    "rewire": "*",
+    "q": "*",
+    "chai": "*"
+  }
+}
