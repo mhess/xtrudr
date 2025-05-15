@@ -27,7 +27,9 @@ function runValFun(thisArg, name, val, fn){
   
   if ( thisArg.async ){
     return fns.reduce(function(lastProm, validator){
-      return lastProm.then(validator, handleErrForName);
+      return lastProm.then(
+        function(){ return validator(val); },
+        handleErrForName);
     }, q(val))
     .then(
       function(r){
@@ -39,7 +41,7 @@ function runValFun(thisArg, name, val, fn){
     // If a validator fn throws an error, just pass its input value
     // to the next validator.
     var errFlag = false;
-    res = fns.reduce(function(p, validator){
+    res = fns.reduce(function(unused, validator){
       try {
         return validator(val);
       } catch (e) {
