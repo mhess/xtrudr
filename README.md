@@ -1,6 +1,6 @@
 # xtrudr.js
 
-JavaScript object validator and sanitizer for node.js.
+JavaScript object validator and sanitizer utility library for node.js.
 
 Written originally as a "strong parameters"-like substitute for JSON
 API server applications.
@@ -28,13 +28,16 @@ var xSync = x()
   })
 
   .add(function(inp, out, err){
-    err.errs = ["you've got them!"];
+    if ( err.baz.length )
+      err.errs = ["you've got them!"];
   });
 
 var input1 = {foo: 1, email: 'oops', num: "a"};
 
 xSync(input1).err  // => {baz: ["is required"], email: ["bad email"],
                    //     num: ["uh uh"], errs: ["you've got them!"]}
+
+xSync.inp          // => {foo: 1, email: 'oops', num: "a"}
 
 xSync.out          // => {foo: 1}
 
@@ -58,15 +61,13 @@ var xAsync = x(true)
     }
   });
 
-xAsync({foo: 0})
-  .then(function(x){
-    console.log(x.err);     // => {foo: ["error"]}
-  });    
+xAsync({foo: 0}).then(function(x){
+  console.log(x.err);                 // => {foo: ["error"]}
+});    
 
-xAsync({foo: 1})
-  .then(function(x){
-    console.log(x.out);     // => {foo: 1}
-  });
+xAsync({foo: 1}).then(function(x){
+  console.log(x.out);                 // => {foo: 1}
+});
 ```
 
 ### The xtrudr instance
@@ -84,7 +85,7 @@ the root object of the library.  They can be either synchronous or
 asynchronous.  The default is sync, while async instances can be 
 created by passing a truthy argument to the factory function.
 
-#### Invocation and instance properties
+#### Instance properties and invocation
  
 The **xtrudr** instance properties are described as follows:
 
@@ -108,14 +109,14 @@ An **xtrudr** instance can be configured with any number of calls to
 three chainable methods: 
 
 * `permit()`: Allows properties in the input object to be assigned to
-  the `out` property, potentially attaching validation logic if the 
-  property is present.
+  the `out` property, potentially registering a validator function to
+  be run if the property is present.
 * `require()`: Requires properties in the input object, adding an 
-  error message (defaults to "is required") if that property is
-  missing.  It also can attach validation logic if it is present.
-* `add()`: Adds a validation method to the **xtrudr** instance that
-  has access to the `inp`, `out`, and `err` properties of the instance
-  via the `this` variable.  
+  error message (default `"is required"`) if that property is missing.
+  This method can also register a validator function to be executed on
+  the property.
+* `add()`: Registers a general validator function on the **xtrudr**
+  instance.
 
 Both the `permit()` and `require()` methods may take either strings or
 objects as arguments.  When provided a string, this configures the 
@@ -133,13 +134,66 @@ as returning the input of the function.  If the function throws a
 value (usually a string), then that value gets appended to the error
 array for the named input.
 
+The input object property values can also be arrays of validator
+functions.  If any of the arrayed validator functions throw a value,
+it will be appended to that property's error array.  If none of the
+validators throw an error, the value returned by the last validator
+function will be placed in the `out` object.
+
 Asynchronous validator functions return a promise with resolve/reject
 behavior that is analogous to the synchronous functions.
 
-The `add()` method adds a general validator function to the instance.
-When the **xtrudr** instance is invoked, validator functions are
-called with the instance's `inp`, `out`, and `err` properties as
-arguments.  They are called *after* all validator functions passed to
-`permit` and `require`, and in the order which they are attached to
-the instance.  General validator functions are useful for cases when
-there is validation that depends on multiple input properties.
+The `add()` method registers a general validator function on the
+instance that gets invoked with the instance invocation's `inp`, 
+`out`, and `err` properties as arguments.  General validator functions
+are invoked *after* all validator functions registered with the 
+`permit`and `require` methods, and in the order which they are 
+registered to the instance.  For async **xtrudr** instances, the
+return value of general validator function must be a promise if the
+function performs async operations.  General validator functions are
+useful for cases when there is validation that depends on multiple
+input properties.
+
+### validator.js Convenience Methods
+
+If **validator.js** library is installed, the **xtrudr** library will
+include a set of chainable methods that wrap the validator and
+sanitzer functions provided by the validator.js library.  They can be
+used anywhere a validator function is accepted.
+
+```javascript
+
+var today = new Date(),
+    oneWeek = new Date(Date.now()+7*24*60*60*1000);
+
+var inst = x()
+  
+  .require({
+
+    name: x.isLength(2,4).msg(function(args){
+      return args[1].length>4 ? "too big" : "too small";
+    }),
+
+    reserve: x.isDate().isBefore(today).msg('too early')
+      .isAfter(oneWeek).msg('too late').toDate()
+
+  });
+
+var inp1 = {name: 'f', reserve: 'today'};
+
+inst(inp1).err  // => { name: ['too small!'], 
+                //      reserve: ['invalid date'] }
+
+var inp2 = {name: 'foobaz', reserve: '2014-06-07'};
+
+// If today was the 9th of June, 2014
+inst(inp2).err  // => { name: ['too big'],
+                //      reservation: ['too early'] }
+
+var inp3 = {name: 'foo', reservation: '2014-06-10'};
+
+inst(inp3).err  // => undefined
+
+inst.out  // => { name: 'foo', 
+          //      reserve: Tue Jun 10 2014 00:00:00 GMT-0700 (PDT) }
+```
