@@ -12,6 +12,7 @@
     "lodash": "*"
   },
   "devDependencies": {
+    "blanket": "latest",
     "mocha-lcov-reporter": "latest",
     "coveralls": "latest",
     "mocha": "*",
