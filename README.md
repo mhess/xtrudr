@@ -28,8 +28,7 @@ var xSync = x()
   })
 
   .add(function(inp, out, err){
-    if ( err.baz.length )
-      err.errs = ["you've got them!"];
+    if ( err.baz ) err.errs = ["you've got them!"];
   });
 
 var input1 = {foo: 1, email: 'oops', num: "a"};
@@ -150,21 +149,24 @@ are invoked *after* all validator functions registered with the
 `permit`and `require` methods, and in the order which they are 
 registered to the instance.  For async **xtrudr** instances, the
 return value of general validator function must be a promise if the
-function performs async operations.  General validator functions are
-useful for cases when there is validation that depends on multiple
-input properties.
+function performs async operations; however, the resolve/reject values
+of that promise are not used for anything.  General validator
+functions are useful for cases when there is validation that depends
+on multiple input properties.
 
 ### validator.js Convenience Methods
 
-If **validator.js** library is installed, the **xtrudr** library will
-include a set of chainable methods that wrap the validator and
-sanitzer functions provided by the validator.js library.  They can be
-used anywhere a validator function is accepted.
+If the **validator.js** library is installed, the **xtrudr** library
+will include a set of chainable methods that wrap the validator and
+sanitzer functions provided by the **validator.js** library.  They can
+be used anywhere a validator function is accepted.
 
 ```javascript
-
-var today = new Date(),
+var x = require('xtrudr'),
+    today = new Date(),
     oneWeek = new Date(Date.now()+7*24*60*60*1000);
+
+x.defaultMsgs['isBefore'] = 'too early';
 
 var inst = x()
   
@@ -174,14 +176,14 @@ var inst = x()
       return args[1].length>4 ? "too big" : "too small";
     }),
 
-    reserve: x.isDate().isBefore(today).msg('too early')
+    reserve: x.isDate().isBefore(today)
       .isAfter(oneWeek).msg('too late').toDate()
 
   });
 
 var inp1 = {name: 'f', reserve: 'today'};
 
-inst(inp1).err  // => { name: ['too small!'], 
+inst(inp1).err  // => { name: ['too small'], 
                 //      reserve: ['invalid date'] }
 
 var inp2 = {name: 'foobaz', reserve: '2014-06-07'};
@@ -197,3 +199,13 @@ inst(inp3).err  // => undefined
 inst.out  // => { name: 'foo', 
           //      reserve: Tue Jun 10 2014 00:00:00 GMT-0700 (PDT) }
 ```
+
+The default error messages for the **validator.js** functions live in
+the `defaultMsgs` property of the **xtrudr** library and can be 
+modified.  The values of these properties can be either strings or
+functions that take an array of the input arguments to the validator
+function as the only argument and return a value to be added to the
+validated property's error array.
+
+The `msg()` method changes the error message for the single instance
+of the validator function registered by the previous method call.
