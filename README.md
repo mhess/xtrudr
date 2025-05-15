@@ -30,6 +30,7 @@ var xSync = xtrudr()
   .require('zab')             // Require property "zab"
 
   .require({oof: validOof});  // Require property "oof" and perform
+                              // validation with validOof
 
 var errInput = {baz: 'nope', oof: 'oof', cats: 1};
 
@@ -141,7 +142,7 @@ three chainable methods:
   property is present.
 * `require()`: Requires properties in the input object, adding an 
   error message (default `"is required"`) if that property is missing.
-  It can also potentially validation if it is present.
+  It can also attach validation logic if it is present.
 * `add()`: Adds a validation method to the **xtrudr** instance that
   has access to the `inp`, `out`, and `err` properties of the instance
   via the `this` variable.  
@@ -153,13 +154,13 @@ property of that name to the `out` object's property.
 
 An object argument provided to `permit()` or `require()` is a mapping 
 of input property names to validator functions.  Validator functions
-must take the named input object's property value and either return a 
-value or throw a *non-`Error`* class error.  If a value is returned 
-then that  value gets placed in the **xtrudr** instance's `out` 
-object.  An `undefined` return value (no return statement) is treated
-the same as returning the input of the function.  If the function 
-throws a value (usually a string), then that value gets appended to 
-the error array for the named input.
+must take the named input object's property value as their only 
+argument and either return a value or throw a *non-`Error`* class 
+error.  If a value is returned then that  value gets placed in the 
+**xtrudr** instance's `out` object.  An `undefined` return value (no 
+return statement) is treated the same as returning the input of the 
+function.  If the function throws a value (usually a string), then 
+that value gets appended to the error array for the named input.
 
 Asynchronous validator functions return a promise with resolve/reject
 behavior that is analogous to the synchronous functions.
