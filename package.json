@@ -1,7 +1,7 @@
 {
   "name": "xtrudr",
   "author": "Matt Hess",
-  "description": "Flexible JavaScript object validator",
+  "description": "Flexible user input validation/sanitization utility",
   "version": "0.1.0",
   "repository": {
     "type": "git",
