@@ -12,6 +12,8 @@
     "lodash": "*"
   },
   "devDependencies": {
+    "mocha-lcov-reporter": "latest",
+    "coveralls": "latest",
     "mocha": "*",
     "validator": "*",
     "rewire": "*",
@@ -23,5 +25,9 @@
   },
   "scripts": {
     "test": "node ./node_modules/mocha/bin/mocha spec"
-  }
+  },
+  "config": {
+    "blanket": {
+      "pattern": ["xtrudr.js", "lib/validators.js"]
+      }}
 }
