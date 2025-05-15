@@ -21,6 +21,6 @@
     "node": ">= 0.10.0"
   },
   "scripts": {
-    "test": "./node_modules/mocha/bin/mocha spec"
+    "test": "node ./node_modules/mocha/bin/mocha spec"
   }
 }
