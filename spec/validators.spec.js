@@ -7,20 +7,43 @@ var validators = rewire('../lib/validators');
 
 describe('convert', function(){
   var mockExports = {},
-      convert = validators.__get__('convert').bind(mockExports),
+      convert = validators.__get__('convertObj').bind(mockExports),
       defaultMsgs = validators.__get__('defaultMsgs');
+
+  function myConvert(name){
+    convert(val[name], name);
+    var cfgFn = mockExports[name];
+    return cfgFn.bind(mockExports);
+  }
+
+  describe('in general', function(){
+
+    it('should produce a cfg fn', function(){
+      var cfgFn = myConvert('isEmail');
+      expect(cfgFn).to.be.instanceOf(Function);
+    });
+
+    it('should produce chainable objects', function(){
+      var valObj = myConvert('isEmail')();
+          fns = valObj._fns;
+      expect(fns).to.be.instanceOf(Array);
+      expect(fns).to.have.length(1);
+      expect(fns[0]).to.be.instanceOf(Function);
+      expect(mockExports.isPrototypeOf(valObj)).to.be.true;
+      valObj.isLength(3);
+      expect(fns).to.have.length(2);
+      expect(fns[1]).to.be.instanceOf(Function);
+    });
+
+  });
 
   describe('isEmail()', function(){
     var name = 'isEmail';
-    convert(val[name], name);
-    var valFn, cfgFn = mockExports[name];
+    var valFn, cfgFn = myConvert(name);
 
-    beforeEach(function(){ valFn = cfgFn(); });
-
-    it('should assign config fn', function(){
-      expect(cfgFn).to.be.instanceOf(Function);
-      expect(valFn).to.be.instanceOf(Function);
-      expect(valFn).to.have.ownProperty('msg');
+    beforeEach(function(){
+      valObj = cfgFn();
+      valFn = valObj._fns[0];
     });
 
     it('should throw default msg for invalid email', function(){
@@ -33,23 +56,19 @@ describe('convert', function(){
 
     it('should allow msg update', function(){
       var myMsg = 'custom';
-      valFn.msg(myMsg);
+      valObj.msg(myMsg);
       expect(valFn).to.throw(myMsg);
     });
   });
 
   describe('equals()', function(){
     var name = 'equals';
-    convert(val[name], name);
-    var valFn, cfgFn = mockExports[name],
+    var valFn, cfgFn = myConvert(name),
         cfgParam = 'foo';
 
-    beforeEach(function(){ valFn = cfgFn(cfgParam); });
-
-    it('should assign config fn', function(){
-      expect(cfgFn).to.be.instanceOf(Function);
-      expect(valFn).to.be.instanceOf(Function);
-      expect(valFn).to.have.ownProperty('msg');
+    beforeEach(function(){
+      valObj = cfgFn(cfgParam);
+      valFn = valObj._fns[0];
     });
 
     it('should throw default msg for non-equal', function(){
@@ -63,55 +82,39 @@ describe('convert', function(){
 
     it('should allow msg update', function(){
       var myMsg = 'custom';
-      valFn.msg(myMsg);
+      valObj.msg(myMsg);
       expect(valFn).to.throw(myMsg);
     });
   });
 
   describe('isLength()', function(){
     var name = 'isLength';
-    convert(val[name], name);
-    var cfgFn = mockExports[name],
+    var cfgFn = myConvert(name),
         min = 2, max = 3;
 
-    it('should assign config fn', function(){
-      var valFn = cfgFn(min);
-      expect(cfgFn).to.be.instanceOf(Function);
-      expect(valFn).to.be.instanceOf(Function);
-      expect(valFn).to.have.ownProperty('msg');
-    });
-
     it('should throw default msg for invalid length', function(){
-      var valFn = cfgFn(min),
+      var valFn = cfgFn(min)._fns[0],
           defMsg = defaultMsgs[name]([null, min]);
       expect(function(){valFn('a');}).to.throw(defMsg);
-      valFn = cfgFn(min, max);
+      valFn = cfgFn(min, max)._fns[0];
       defMsg = defaultMsgs[name]([null, min, max]);
       expect(function(){valFn('abcd');}).to.throw(defMsg);
     });
 
-    it('should return undefined for length', function(){
-      expect(cfgFn(min)('abc')).to.be.undefined;
+    it('should return undefined for valid length', function(){
+      expect(cfgFn(min)._fns[0]('abc')).to.be.undefined;
     });
 
     it('should allow msg update', function(){
       var myMsg = 'custom';
-      cfgFn(min)().msg(myMsg);
-      expect(valFn).to.throw(myMsg);
+          valObj = cfgFn(min).msg(myMsg);
+      expect(valObj._fns[0]).to.throw(myMsg);
     });
   });
 
   describe('toInt()', function(){
-    var name = 'toInt';
-    convert(val[name], name);
-    var cfgFn = mockExports[name];
-        valFn = cfgFn(10);
-
-    it('should assign config fn', function(){
-      expect(cfgFn).to.be.instanceOf(Function);
-      expect(valFn).to.be.instanceOf(Function);
-      expect(valFn).to.have.ownProperty('msg');
-    });
+    var cfgFn = myConvert('toInt'),
+        valFn = cfgFn(10)._fns[0];
 
     it('should return NaN for invalid int', function(){
       expect(valFn('a')).to.deep.equal(NaN);

@@ -4,6 +4,7 @@
   "description": "Flexible JavaScript object validator",
   "version": "0.1.0",
   "repository": {
+    "type": "git",
     "url": "git@github.com:mhess/xtrudr.git"
   },
   "main": "xtrudr.js",
@@ -20,6 +21,6 @@
     "node": ">= 0.10.0"
   },
   "scripts": {
-    "test": "mocha spec"
+    "test": "./node_modules/mocha/bin/mocha spec"
   }
 }
