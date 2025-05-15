@@ -191,9 +191,10 @@ describe('Async API', function(){
   });
 
   describe('#add()', function(){
+
     var props,
-      checkNamed = false, namedDefered = q.defer(),
-      checkGeneral = false, generalDefered = q.defer();
+        checkNamed = false, namedDefered = q.defer(),
+        checkGeneral = false, generalDefered = q.defer();
     var myInst = x(true)
       .permit({
         foo: function(){
@@ -256,6 +257,7 @@ describe('Async API', function(){
     });
 
     describe('chainable obj', function(){
+      
       var inst = x(true).require({
         foo: x.isLength(2,2).msg(1).isInt().msg(2).toString().toInt()
       });
