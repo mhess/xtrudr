@@ -6,68 +6,63 @@ node.js.
 ### Quickstart Example Usage
 
 ```javascript
-var xtrudr = require('xtrudr'),
-    q      = require('q');   // Optional depedency only needed for
-                             // async validation.
+var x = require('xtrudr'),
+    q = require('q');       // Optional depedency only needed for
+                            // async validation.
 
-// Synchronous validator functions
 
-function validBaz(i){ if( i!=='baz' ) throw "not baz"; }
-
-function validOof(i){ 
-  if( i!=='oof' ) throw "not oof";
-  return 3;
+function validBaz(i){       // Synchronous validator function
+  if( i=='baz' ) return 1;
+  throw "not baz"; 
 }
 
-// Synchronous xtrudr instance creation and configuration
-var xSync = xtrudr()
+var xSync = x()             // Synchronous xtrudr instance
 
-  .permit('foo', 'cats')       // Allow property "foo" and "cat"
+  .permit('foo')            // Allow "foo"
+  .require({
 
-  .permit({baz: validBaz}})   // Allow "baz" and if it's present, 
-                              // perform validation with validBaz
+    zab: validBaz,          // Require "baz" and run "validBaz"
 
-  .require('zab')             // Require property "zab"
+    email: x.isEmail()      // Require valid email
+      .msg('bad email'),    // Use custom error message
 
-  .require({oof: validOof});  // Require property "oof" and perform
-                              // validation with validOof
+    num: [
+      x.isInt(),            // Check if int
+      x.toInt()             // Convert to int
+    ]
+  });  
 
-var errInput = {baz: 'nope', oof: 'oof', cats: 1};
+var input1 = {foo: 1, email: 'oops', num: "a"};
+xSync(input1).err           // => {baz: ["is required"],
+                            //     email: ["bad email"],
+                            //     num: ["must be int"]}
+xSync.out                   // => {foo: 1}
 
-xSync(errInput).err  // => {baz: ["not baz"], zab: ["is required"]}
+var input2 = {baz: 'baz', email: "a@baz.com", num: 2};
+xSync(input2).err           // => undefined
+xSync.out                   // => {baz: 1, email: "a@baz.com", num: 2}
 
-xSync.out            // => {oof: 3, cats: 1}
 
-var goodInput = {foo: 1, baz: 'baz', zab: 2, oof: 'oof'};
-
-xSync(goodInput).err // => undefined
-
-xSync.out            // => {foo:1, baz: 'baz', zab: 2, oof: 3}
-
-// Async validator function
-function asyncValidFoo(i){
-  return q.fcall( /* async operation */ ).then(function(r){
-    if (!r) throw "error msg";
-    else return r+1;
+function asyncFoo(i){       // Async validator function
+  return q(i)
+  .then(function(r){
+    if (!r) throw "error";
+    return r;
   });
 }
 
-// Asynchronous xtrudr instance
-var x2 = xtrudr(true)
+var xAsync = x(true)        // Asynchronous xtrudr instance
 
-  .require({foo: asyncValidFoo});  // Require foo and perform async
-                                   // validation with asyncValidFoo
+  .require({foo: asyncFoo});
 
-x2({foo: "baz"})
-  .then(function(x){     // Resolves to the populated xtrudr instance.
-    console.log(x.err);  // => {foo: ["error msg"]}
-    console.log(x.out);  // => {}
+xAsync({foo: "baz"})
+  .then(function(x){        // Resolves to the populated xtrudr inst
+    console.log(x.err);     // => {foo: ["error"]}
   });
 
-x2({foo: 1})
+xAsync({foo: 1})
   .then(function(x){
-    console.log(x.err);  // => undefined
-    console.log(x.out);  // => {foo: 2}
+    console.log(x.out);     // => {foo: 2}
   });
 ```
 
@@ -76,8 +71,8 @@ x2({foo: 1})
 This library performs object validation/sanitization/transformation
 via the use of configurable functions called **xtrudr** instances.
 An instance is called with an input object as the only argument which
-it uses to populate the output (`out`) and error (`err`) properties of 
-itself (the instance) for the most recent invocation.
+it uses to populate the `inp`, `out`, `err` properties of itself (the
+instance) for the most recent invocation.
 
 #### Instantiation
 
