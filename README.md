@@ -166,7 +166,7 @@ var x = require('xtrudr'),
     today = new Date(),
     oneWeek = new Date(Date.now()+7*24*60*60*1000);
 
-x.defaultMsgs['isBefore'] = 'too early';
+x.defaultMsgs.isBefore = 'too early';
 
 var inst = x()
   
