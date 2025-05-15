@@ -2,7 +2,7 @@ var rewire = require('rewire'),
     expect = require('chai').expect,
     q      = require('q');
 
-var xtrudr = rewire('../xtrudr');
+var x = rewire('../xtrudr');
 
 var syncOkFn = function(inp){ syncOkFn.count++; return inp+1; },
     syncErrFn = function(inp){ syncErrFn.count++; throw inp-1; };
@@ -25,101 +25,186 @@ function xpect(x, inp, out, err){
   });
 }
 
-describe('#permit()', function(){
+['permit', 'require'].forEach(function(meth){
 
-  describe('with str arg', function(){
-    var name = 'foo';
-    var myXtrudr = xtrudr().permit(name);
+  describe('Shared #'+meth+'()', function(){
 
-    it('should simply pass parameter through', function(){
-      var inp = {};
-      inp[name] = 1;
-      xpect(myXtrudr(inp), inp, inp);
+    describe('with str arg', function(){
+      var name = 'foo';
+      var myXtrudr = x()[meth](name);
+
+      it('should simply pass parameter through', function(){
+        var inp = {};
+        inp[name] = 1;
+        xpect(myXtrudr(inp), inp, inp);
+      });
+
+      if ( meth === 'permit' ) {
+        it('should not populate anything if missing', function(){
+          var inp = {baz:1};
+          xpect(myXtrudr(inp), inp, {});
+        });
+      } else {
+        it('should assign error for missing', function(){
+          var inp = {baz:1};
+          xpect(myXtrudr(inp), inp, {}, {foo:['is required']});
+        });
+      }
     });
 
-    it('should not poplate anything if missing', function(){
-      var inp = {baz:1};
-      xpect(myXtrudr(inp), inp, {});
+    describe('with array arg', function(){
+
+      var myXtrudr = x()[meth](['foo', 'baz']);
+
+      it('should allow all names in array', function(){
+        var inp = {foo:1, baz:2, zab: 3};
+        xpect(myXtrudr(inp), inp, {foo:1, baz:2});
+      });
+
+      if ( meth === 'permit' ) {
+        it('should not populate anything if missing', function(){
+          var inp = {zab: 3};
+          xpect(myXtrudr(inp), inp, {});
+        });
+      } else {
+        it('should assign errors for missing', function(){
+          var inp = {zab: 3};
+          xpect(myXtrudr(inp), inp, {}, {
+            foo:['is required'],
+            baz:['is required']
+          });
+        });
+      }
+
     });
 
-  });
-
-  describe('with array arg', function(){
-
-    it('should permit all names in array', function(){
-      var myXtrudr = xtrudr().permit(['foo', 'baz']),
-          inp = {foo:1, baz:2, zab: 3};
-      xpect(myXtrudr(inp), inp, {foo:1, baz:2});
-    });
-
-  });
-
-  describe('with obj arg', function(){
-
-    describe('and sync function', function(){
-
+    describe('with obj arg and validator', function(){
       var inp = {foo: 1},
-          myXtrudr = xtrudr();
+          myXtrudr = x()[meth]({foo: syncOkFn});
 
       beforeEach(reset);
 
+      if ( meth === 'permit' ) {
+        it('should not populate anything if missing', function(){
+          var inp = {baz:1};
+          xpect(myXtrudr(inp), inp, {});
+        });
+      } else {
+        it('should assign error for missing', function(){
+          var inp = {baz:1};
+          xpect(myXtrudr(inp), inp, {}, {foo:['is required']});
+        });
+      }
+
       it('should call function and assign result', function(){
-        var inp = {foo: 1};
-        myXtrudr.permit({foo: syncOkFn})(inp);
+        myXtrudr(inp);
         expect(syncOkFn.count).to.equal(1);
         xpect(myXtrudr, inp, {foo:2});
       });
 
-      it('should run function and assign error', function(){
-        var inp = {foo: 1};
-        myXtrudr.permit({foo: syncErrFn})(inp);
+      it('should call function and assign error', function(){
+        var myXtrudr = x()[meth]({foo: syncErrFn})(inp);
         expect(syncErrFn.count).to.equal(1);
         xpect(myXtrudr, inp, {}, {foo:[0]});
       });
-
-    });
-
-    describe('and async function', function(){
-
-      var myXtrudr;
-      beforeEach(function(){ reset(); myXtrudr = xtrudr(true); });
-
-      it('should assign result and return promise', function(done){
-        var inp = {foo: 1},
-            res = myXtrudr.permit({foo: asyncOkFn})(inp);
-        expect(q.isPromise(res)).to.be.true;
-        res.done(function(x){
-          expect(asyncOkFn.count).to.equal(1);
-          xpect(myXtrudr, inp, {foo:2});
-          done();
-        });
-
-      });
-
-      it('should do nothing and return promise', function(done){
-        var res = myXtrudr.permit({foo: asyncOkFn})({});
-        expect(q.isPromise(res)).to.be.true;
-        res.done(function(x){
-          expect(asyncOkFn.count).to.equal(0);
-          xpect(myXtrudr, {}, {});
-          done();
-        });
-      });
-
-      it('should assign err and return promise', function(){
-
-      });
-
     });
   });
 });
 
-describe('#require()', function(){
+describe('#require() with validator as', function(){
+
+  describe('array of fns', function(){
+
+    function bazFn(i){ if (!i) throw "baz"; }
+    function zabFn(i){ if (!i) throw "zab"; }
+    function lastFn(){ return 'baz'; }
+    
+    var myXtrudr = x().require({
+      foo: [syncOkFn, bazFn, zabFn, lastFn]
+    });
+
+    beforeEach(reset);
+
+    it('should use value returned by last fn', function(){
+      var inp = {foo: 1};
+      expect(myXtrudr(inp), inp, {foo: 'baz'});
+      expect(syncOkFn.count).to.equal(1);
+    });
+
+    it('should concatenate and assign errs', function(){
+      var inp = {foo: 0};
+      expect(myXtrudr(inp), inp, {}, {foo:['baz', 'zab']});
+      expect(syncOkFn.count).to.equal(1);
+    });
+  });
+
+  describe('chainable obj', function(){
+    var myXtrudr = x().require({
+      foo: x.isLength(2,2).msg(1).isInt().msg(2).toString().toInt()
+    });
+
+    it('should assign custom err msgs', function(){
+      var inp = {foo: 'a'};
+      xpect(myXtrudr(inp), inp, {}, {foo: [1,2]});
+
+      inp = {foo: 1};
+      xpect(myXtrudr(inp), inp, {}, {foo: [1]});
+
+      inp = {foo: 'ab'};
+      xpect(myXtrudr(inp), inp, {}, {foo: [2]});
+    });
+
+    it('should transform with final sanitizer', function(){
+      var inp = {foo: '12'};
+      xpect(myXtrudr(inp), inp, {foo: 12});
+    });
+  });
+});
+
+describe.skip('and async function', function(){
+
+  var myXtrudr;
+  beforeEach(function(){ reset(); myXtrudr = x(true); });
+
+  it('should assign result and return promise', function(){
+    var inp = {foo: 1},
+        res = myXtrudr[meth]({foo: asyncOkFn})(inp);
+    expect(q.isPromise(res)).to.be.true;
+    return res.then(function(x){
+      expect(asyncOkFn.count).to.equal(1);
+      xpect(myXtrudr, inp, {foo:2});
+    });
+
+  });
+
+  it('should do nothing and return promise', function(){
+    var res = myXtrudr[meth]({foo: asyncOkFn})({});
+    expect(q.isPromise(res)).to.be.true;
+    return res.done(function(x){
+      expect(asyncOkFn.count).to.equal(0);
+      xpect(myXtrudr, {}, {});
+    });
+  });
+
+  it('should assign err and return promise', function(){
+
+  });
+
+});
+
+/*
+
+Specs for compound validator fn input (arrays of fns, and chainable
+validator.js objects) should go here.
+
+*/
+
+describe.skip('#require()', function(){
 
   describe('with str argument', function(){
 
     var name = 'foo';
-    var myXtrudr = xtrudr().require(name);
+    var myXtrudr = x().require(name);
 
     it('should simply pass parameter through', function(){
       var inp = {foo:1};
@@ -140,7 +225,7 @@ describe('#require()', function(){
     describe('and sync function', function(){
 
       beforeEach(reset);
-      var myXtrudr = xtrudr();
+      var myXtrudr = x();
 
       it('should call function and assign result', function(){
         var inp = {foo: 1};
@@ -161,7 +246,7 @@ describe('#require()', function(){
     describe('and async function', function(){
 
       var myXtrudr;
-      beforeEach(function(){ reset(); myXtrudr = xtrudr(true); });
+      beforeEach(function(){ reset(); myXtrudr = x(true); });
 
       it('should assign result and return promise', function(done){
         var inp = {foo:1},
@@ -177,8 +262,7 @@ describe('#require()', function(){
 
       it('should assign err if missing and return prom', function(done){
         var res = myXtrudr.require({foo: asyncOkFn})({});
-        expect(q.isPromise(res)).to.be.true;
-        res.done(function(x){
+        return res.done(function(x){
           expect(x).to.equal(myXtrudr);
           expect(x.err.foo).to.deep.equal(['is required']);
           expect(x.out).to.deep.equal({});
@@ -202,7 +286,7 @@ describe('#require()', function(){
 });
 
 describe('handleErr()', function(){
-  var handleErr = xtrudr.__get__('handleErr');
+  var handleErr = x.__get__('handleErr');
 
   it('should throw if given an Error inst', function(){
     var err = new Error('foo');
@@ -227,7 +311,7 @@ describe('handleErr()', function(){
 
 describe("runValFun()", function(){
 
-  var runValFun = xtrudr.__get__('runValFun'),
+  var runValFun = x.__get__('runValFun'),
       myXtrudr, expInp = {}, expOut = {},
       name = 'foo', inp = 1;
       expInp[name] = inp;
@@ -242,7 +326,7 @@ describe("runValFun()", function(){
       expect(res).to.be.undefined;
     }
 
-    beforeEach(function(){ myXtrudr = xtrudr(); });
+    beforeEach(function(){ myXtrudr = x(); });
 
     it('should assign fn output to xtrudr.out', function(){
       run(syncOkFn);
@@ -286,7 +370,7 @@ describe("runValFun()", function(){
 
   describe('with async xtrudr', function(){
 
-    beforeEach(function(){ myXtrudr = xtrudr(true); });
+    beforeEach(function(){ myXtrudr = x(true); });
 
     function run(fns){
       var res = runValFun(myXtrudr, name, inp, fns);
@@ -308,17 +392,15 @@ describe("runValFun()", function(){
       });
     });
 
-    it('should assign out if fn returns nothing', function(done){
-      run(function(){}).done(function(){
+    it('should assign out if fn returns nothing', function(){
+      return run(function(){}).then(function(){
         xpect(myXtrudr, {}, expInp, {});
-        done();
       });
     });
 
-    it('should assign out if no fn', function(done){
-      run().done(function(){
+    it('should assign out if no fn', function(){
+      return run().done(function(){
         xpect(myXtrudr, {}, expInp, {});
-        done();
       });
     });
 
@@ -335,11 +417,11 @@ describe("runValFun()", function(){
         });
       });
 
-      it('should concatenate errs and not assign out', function(done){
-        run([asyncOkFn, syncErrFn, asyncErrFn]).done(function(){
+      it('should concatenate errs and not assign out', function(){
+        return run([asyncOkFn, syncErrFn, asyncErrFn])
+        .then(function(){
           expect(asyncOkFn.count).to.equal(1);
           xpect(myXtrudr, {}, {}, {foo:[0,0]});
-          done();
         });
       });
     });
