@@ -220,7 +220,7 @@ The `msg()` method changes the error message for the single instance
 of the validator function registered by the previous method call.
 
 [npm-url]: https://npmjs.org/package/xtrudr
-[npm-img]: http://img.shields.io/npm/v/xtrudr
+[npm-img]: http://img.shields.io/npm/v/xtrudr.svg
 [travis-url]: https://travis-ci.org/mhess/xtrudr
 [travis-img]: http://img.shields.io/travis/mhess/xtrudr.svg
 [coveralls-url]: https://coveralls.io/r/mhess/xtrudr
